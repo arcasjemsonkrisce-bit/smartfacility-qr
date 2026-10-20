@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartFacility QR — School Facility Reservation</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #f59e0b;
+            --light: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+        body {
+            background: linear-gradient(135deg, #e0f2fe, #dbeafe);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text);
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            font-size: 28px;
+            color: var(--primary);
+        }
+        .subtitle {
+            color: #64748b;
+            margin-top: 5px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: #e2e8f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        .tab.active {
+            background: var(--primary);
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .card {
+            background: var(--card);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        .facility-card {
+            padding: 18px;
+            border-radius: 10px;
+            border-left: 4px solid;
+            margin-bottom: 12px;
+            background: white;
+        }
+        .facility-card.available {
+            border-color: var(--success);
+            background: #f0fdf4;
+        }
+        .facility-card.reserved {
+            border-color: var(--danger);
+            background: #fef2f2;
+        }
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 8px;
+        }
+        .available .status-badge {
+            background: #dcfce7;
+            color: var(--success);
+        }
+        .reserved .status-badge {
+            background: #fee2e2;
+            color: var(--danger);
+        }
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        button:hover { opacity: 0.9; }
+        form label {
+            display: block;
+            margin: 12px 0 5px;
+            font-weight: 500;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background: #f1f5f9;
+            font-weight: 600;
+        }
+        .message {
+            padding: 12px;
+            border-radius: 6px;
+            margin: 15px 0;
+            display: none;
+        }
+        .message.show { display: block; }
+        .message.success { background: #dcfce7; color: #166534; }
+        .message.error { background: #fee2e2; color: #991b1b; }
+        .message.info { background: #dbeafe; color: #1e40af; }
+        .check-date {
+            background: #fef9c3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .qr-box {
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .qr-box canvas {
+            border: 8px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 6px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🏫 SmartFacility QR</h1>
+        <p class="subtitle">School Facility Reservation & QR Monitoring System</p>
+    </header>
+
+    <div id="msg" class="message"></div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('check')">📅 Check Availability</button>
+        <button class="tab" onclick="switchTab('reserve')">📝 Make Reservation</button>
+        <button class="tab" onclick="switchTab('myReservations')">📋 My Reservations</button>
+        <button class="tab" onclick="switchTab('qrcodes')">📲 QR Codes</button>
+    </div>
+
+    <!-- CHECK AVAILABILITY -->
+    <div id="check" class="tab-content active">
+        <div class="card">
+            <h2>📅 Check Facility Availability</h2>
+            <div class="check-date">
+                <label><strong>Select Date to View:</strong></label>
+                <input type="date" id="checkDate" onchange="checkAvailability()">
+                <button class="btn-primary" onclick="checkAvailability()">🔍 Check Now</button>
+            </div>
+            
+            <h3>Facility Status — <span id="selectedDate">Today</span></h3>
+            <p style="color:#64748b; margin:10px 0;">Green = Available &nbsp;|&nbsp; Red = Already Reserved</p>
+            
+            <div id="availabilityList"></div>
+        </div>
+    </div>
+
+    <!-- RESERVE FORM -->
+    <div id="reserve" class="tab-content">
+        <div class="card">
+            <h2>📝 Reserve a Facility</h2>
+            <form id="reserveForm">
+                <label>Your Full Name:</label>
+                <input type="text" id="studentName" placeholder="Enter your name" required>
+
+                <label>Select Facility:</label>
+                <select id="facilitySelect" required></select>
+
+                <div class="form-row">
+                    <div>
+                        <label>Date:</label>
+                        <input type="date" id="resDate" required>
+                    </div>
+                    <div>
+                        <label>Time:</label>
+                        <input type="time" id="resTime" required>
+                    </div>
+                </div>
+
+                <label>Purpose of Use:</label>
+                <textarea id="purpose" rows="3" placeholder="What will you use it for?" required></textarea>
+
+                <button type="button" class="btn-warning" onclick="checkBeforeReserve()">🔍 Check Availability First</button>
+                <button type="submit" class="btn-success" style="margin-top:10px; width:100%;">✅ Submit Reservation</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MY RESERVATIONS -->
+    <div id="myReservations" class="tab-content">
+        <div class="card">
+            <h2>📋 My Reservations</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Facility</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Reserved By</th>
+                        <th>Purpose</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="resBody"></tbody>
+            </table>
+            <p id="noRes" style="text-align:center; color:#64748b; padding:20px;">No reservations yet.</p>
+        </div>
+    </div>
+
+    <!-- QR CODES -->
+    <div id="qrcodes" class="tab-content">
+        <div class="card">
+            <h2>📲 Facility QR Codes</h2>
+            <p style="color:#64748b; margin-bottom:25px;">Print these QR codes and display them at each facility. Scan to check availability and reserve instantly!</p>
+            <div id="qrContainer" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:25px;"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// DATA — Cleaned up names
+const facilities = [
+    { id: 'avr', name: 'AVR Room' },
+    { id: 'cafe', name: 'Research Cafe' },
+    { id: 'stage', name: 'Main Stage' },
+    { id: 'grounds', name: 'School Grounds' }
+];
+
+let reservations = JSON.parse(localStorage.getItem('reservations') || '[]');
+
+// INIT
+window.onload = function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('checkDate').value = today;
+    document.getElementById('resDate').min = today;
+    populateFacilityDropdowns();
+    checkAvailability();
+    renderReservations();
+    generateQRCodes();
+};
+
+// SWITCH TABS
+function switchTab(tabId) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+    if (tabId === 'check') checkAvailability();
+}
+
+// SHOW MESSAGE
+function showMessage(text, type) {
+    const msg = document.getElementById('msg');
+    msg.textContent = text;
+    msg.className = `message show ${type}`;
+    setTimeout(() => msg.classList.remove('show'), 4000);
+}
+
+// POPULATE DROPDOWN
+function populateFacilityDropdowns() {
+    const select = document.getElementById('facilitySelect');
+    select.innerHTML = '<option value="">-- Select a facility --</option>';
+    facilities.forEach(fac => {
+        select.innerHTML += `<option value="${fac.id}">${fac.name}</option>`;
+    });
+}
+
+// CHECK AVAILABILITY BY DATE
+function checkAvailability() {
+    const selectedDate = document.getElementById('checkDate').value;
+    document.getElementById('selectedDate').textContent = selectedDate || 'Today';
+    
+    const list = document.getElementById('availabilityList');
+    list.innerHTML = '';
+    
+    facilities.forEach(fac => {
+        const reservedOnDate = reservations.filter(r => 
+            r.facilityId === fac.id && r.date === selectedDate
+        );
+        
+        const isReserved = reservedOnDate.length > 0;
+        
+        list.innerHTML += `
+            <div class="facility-card ${isReserved ? 'reserved' : 'available'}">
+                <h4>${fac.name}</h4>
+                ${isReserved 
+                    ? `<span class="status-badge">❌ RESERVED</span>
+                       <div style="margin-top:8px; font-size:13px;">
+                           <strong>Reserved times:</strong><br>
+                           ${reservedOnDate.map(b => `🕐 ${b.time} — ${b.studentName}`).join('<br>')}
+                       </div>`
+                    : `<span class="status-badge">✅ AVAILABLE</span>
+                       <p style="margin-top:8px; font-size:13px;">Ready to reserve!</p>`
+                }
+            </div>
+        `;
+    });
+}
+
+// CHECK BEFORE RESERVE
+function checkBeforeReserve() {
+    const facId = document.getElementById('facilitySelect').value;
+    const date = document.getElementById('resDate').value;
+    const time = document.getElementById('resTime').value;
+    
+    if (!facId || !date || !time) {
+        showMessage('Please select facility, date, and time first!', 'error');
+        return;
+    }
+    
+    const isConflict = reservations.some(r => 
+        r.facilityId === facId && r.date === date && r.time === time
+    );
+    
+    const facName = facilities.find(f => f.id === facId).name;
+    
+    if (isConflict) {
+        showMessage(`❌ ${facName} is already reserved on this date and time! Please choose another.`, 'error');
+    } else {
+        showMessage(`✅ ${facName} is available at this time! You may proceed.`, 'success');
+    }
+}
+
+// SUBMIT RESERVATION
+document.getElementById('reserveForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('studentName').value.trim();
+    const facId = document.getElementById('facilitySelect').value;
+    const date = document.getElementById('resDate').value;
+    const time = document.getElementById('resTime').value;
+    const purpose = document.getElementById('purpose').value.trim();
+
+    if (!name || !facId || !date || !time || !purpose) {
+        showMessage('Please fill in all fields!', 'error');
+        return;
+    }
+
+    const conflict = reservations.some(r => 
+        r.facilityId === facId && r.date === date && r.time === time
+    );
+    
+    if (conflict) {
+        showMessage('❌ This facility is already reserved for this date and time! Please choose another.', 'error');
+        return;
+    }
+
+    const facility = facilities.find(f => f.id === facId);
+    
+    reservations.push({
+        id: Date.now(),
+        studentName: name,
+        facilityId: facId,
+        facilityName: facility.name,
+        date: date,
+        time: time,
+        purpose: purpose
+    });
+
+    localStorage.setItem('reservations', JSON.stringify(reservations));
+    
+    showMessage(`✅ Successfully reserved ${facility.name} on ${date} at ${time}!`, 'success');
+    
+    this.reset();
+    checkAvailability();
+    renderReservations();
+    switchTab('myReservations');
+});
+
+// RENDER ALL RESERVATIONS
+function renderReservations() {
+    const tbody = document.getElementById('resBody');
+    const noRes = document.getElementById('noRes');
+    
+    tbody.innerHTML = '';
+    
+    if (reservations.length === 0) {
+        noRes.style.display = 'block';
+        return;
+    }
+    noRes.style.display = 'none';
+    
+    reservations.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    reservations.forEach(res => {
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${res.facilityName}</strong></td>
+                <td>${res.date}</td>
+                <td>${res.time}</td>
+                <td>${res.studentName}</td>
+                <td>${res.purpose}</td>
+                <td>
+                    <button class="btn-danger" style="padding:5px 10px; font-size:12px;" onclick="cancelRes(${res.id})">Cancel</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+// CANCEL RESERVATION
+function cancelRes(id) {
+    if (confirm('Are you sure you want to cancel this reservation?')) {
+        reservations = reservations.filter(r => r.id !== id);
+        localStorage.setItem('reservations', JSON.stringify(reservations));
+        renderReservations();
+        checkAvailability();
+        showMessage('✅ Reservation cancelled.', 'success');
+    }
+}
+
+// GENERATE QR CODES
+function generateQRCodes() {
+    const container = document.getElementById('qrContainer');
+    container.innerHTML = '';
+    
+    facilities.forEach(fac => {
+        container.innerHTML += `
+            <div class="qr-box">
+                <h4 style="margin-bottom:10px;">${fac.name}</h4>
+                <div id="qr-${fac.id}"></div>
+                <p style="font-size:12px; color:#64748b; margin-top:10px;">Scan to Check & Reserve</p>
+            </div>
+        `;
+    });
+    
+    facilities.forEach(fac => {
+        const qrText = `SmartFacility:Reserve-${fac.id}`;
+        const canvas = document.createElement('canvas');
+        document.getElementById(`qr-${fac.id}`).appendChild(canvas);
+        QRCode.toCanvas(canvas, qrText, { width: 150 }, function(err) {
+            if (err) console.error(err);
+        });
+    });
+}
+</script>
+</body>
+  </html>
+                  
